@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>平安托付 · Vue3 组件预览</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background:
+      radial-gradient(900px 600px at 15% 0%, #E3EFEC 0%, transparent 60%),
+      radial-gradient(800px 600px at 100% 100%, #E7ECF1 0%, transparent 55%),
+      #EDF0F2;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  #app { display: flex; }
+  .loading { margin: 0; font-size: 13px; color: #85928F; }
+  @media (max-width: 480px) {
+    body { padding: 0; display: block; background: #F7F8FA; }
+    #app { display: block; height: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"><p class="loading">正在加载组件…</p></div>
+
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/vue3-sfc-loader@0.9.5/dist/vue3-sfc-loader.js"></script>
+<script>
+  const { loadModule } = window['vue3-sfc-loader'];
+
+  const options = {
+    moduleCache: { vue: Vue },
+    async getFile(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw Object.assign(new Error(res.statusText + ' ' + url), { res });
+      return {
+        getContentData: asBinary => asBinary ? res.arrayBuffer() : res.text()
+      };
+    },
+    addStyle(textContent) {
+      const style = document.createElement('style');
+      style.textContent = textContent;
+      document.head.appendChild(style);
+    },
+    log(type, ...args) {
+      console[type](...args);
+    },
+    getResourceURL(opts, module, path) {
+      return new URL(path, new URL('./', location.href)).href;
+    }
+  };
+
+  const app = Vue.createApp(
+    Vue.defineAsyncComponent(() => loadModule('./src/components/PingAnTuoFu.vue', options))
+  );
+  app.mount('#app');
+</script>
+</body>
+</html>

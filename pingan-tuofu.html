@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>平安托付 · 状态申请</title>
+<style>
+  :root{
+    --bg:#EDF0F2;
+    --app-bg:#F7F8FA;
+    --surface:#FFFFFF;
+    --ink:#16211F;
+    --ink-2:#3D4A47;
+    --muted:#85928F;
+    --line:#EDF0EF;
+    --primary:#0E6B5B;
+    --primary-dark:#0A5548;
+    --primary-soft:#E9F4F1;
+    --danger:#C1472F;
+    --radius:20px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(900px 600px at 15% 0%, #E3EFEC 0%, transparent 60%),
+      radial-gradient(800px 600px at 100% 100%, #E7ECF1 0%, transparent 55%),
+      var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    padding:20px;
+  }
+
+  /* ---------- 手机外框 ---------- */
+  .phone{
+    position:relative;
+    width:390px;
+    height:min(844px, calc(100vh - 40px));
+    display:flex;flex-direction:column;
+    background:var(--app-bg);
+    border-radius:44px;
+    box-shadow:
+      0 0 0 10px #14201E,
+      0 0 0 11px #2B3734,
+      0 40px 80px rgba(14,32,30,.28);
+    overflow:hidden;
+  }
+  @media (max-width: 480px){
+    body{padding:0;background:var(--app-bg);}
+    .phone{
+      width:100vw;height:100vh;height:100dvh;
+      border-radius:0;box-shadow:none;
+    }
+  }
+
+  /* ---------- 状态栏 ---------- */
+  .statusbar{
+    flex:none;height:44px;padding:0 26px 0 30px;
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:13px;font-weight:600;letter-spacing:.2px;color:var(--ink);
+  }
+  .statusbar .icons{display:flex;align-items:center;gap:5px;opacity:.85;}
+  .statusbar .icons .bar{width:3px;background:var(--ink);border-radius:1px;}
+  .battery{width:22px;height:11px;border:1.2px solid var(--ink);border-radius:3px;position:relative;opacity:.9;}
+  .battery::after{content:"";position:absolute;left:1.4px;top:1.4px;bottom:1.4px;width:13px;background:var(--ink);border-radius:1.5px;}
+  .battery::before{content:"";position:absolute;right:-3px;top:3px;width:1.6px;height:4px;background:var(--ink);border-radius:0 1px 1px 0;}
+
+  /* ---------- 顶部标题 ---------- */
+  .header{flex:none;padding:6px 24px 4px;}
+  .brand{
+    display:flex;align-items:center;gap:9px;
+    font-size:23px;font-weight:700;letter-spacing:.5px;
+  }
+  .logo{
+    width:26px;height:26px;border-radius:9px;
+    background:linear-gradient(140deg,#137A67,#0A5548);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 10px rgba(14,107,91,.28);
+  }
+  .logo svg{width:15px;height:15px;stroke:#fff;}
+  .hint{
+    margin:9px 0 0;font-size:12.5px;line-height:1.65;color:var(--muted);
+    letter-spacing:.1px;
+  }
+
+  /* ---------- 滚动区 ---------- */
+  .scroll{
+    flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+    padding:16px 20px 8px;
+    scrollbar-width:none;
+  }
+  .scroll::-webkit-scrollbar{display:none;}
+
+  /* ---------- 记录 ---------- */
+  .records{margin-bottom:12px;}
+  .records[hidden]{display:none;}
+  .records-head{
+    font-size:12px;font-weight:600;color:var(--muted);
+    letter-spacing:1px;margin:0 4px 8px;
+  }
+  .record-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .record{
+    display:flex;align-items:flex-start;gap:11px;
+    background:var(--surface);border-radius:16px;
+    padding:13px 14px;
+    box-shadow:0 2px 10px rgba(20,40,36,.05);
+  }
+  .record.pop{animation:pop .32s cubic-bezier(.22,1.2,.4,1);}
+  @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98);}to{opacity:1;transform:none;}}
+  .record-check{
+    flex:none;width:22px;height:22px;border-radius:50%;
+    background:var(--primary-soft);
+    display:flex;align-items:center;justify-content:center;margin-top:1px;
+  }
+  .record-check svg{width:12px;height:12px;stroke:var(--primary);stroke-width:3;}
+  .record-title{font-size:13.5px;font-weight:600;letter-spacing:.2px;}
+  .record-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+
+  /* ---------- 主卡片 ---------- */
+  .card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:2px 18px 18px;
+    box-shadow:0 6px 24px rgba(20,40,36,.06);
+  }
+  .row{
+    display:flex;align-items:center;justify-content:space-between;
+    min-height:58px;gap:12px;
+  }
+  .row + .row, .row + .block, .block + .row{border-top:1px solid var(--line);}
+  .row-label{font-size:14px;color:var(--ink-2);letter-spacing:.2px;}
+  .row-value{
+    font-size:15px;font-weight:600;letter-spacing:.2px;
+    color:var(--ink);display:flex;align-items:center;gap:4px;
+  }
+  .row-value .chev{width:16px;height:16px;stroke:#B3BEBB;stroke-width:2;fill:none;}
+
+  /* 日期行：原生日期控件覆盖整行 */
+  .date-row{position:relative;cursor:pointer;margin:0 -18px;padding:0 18px;border-radius:14px;transition:background .18s;}
+  .date-row:active{background:#F4F7F6;}
+  .date-row:focus-within{box-shadow:inset 0 0 0 1.5px rgba(14,107,91,.35);}
+  .date-row input[type=date]{
+    position:absolute;inset:0;width:100%;height:100%;
+    opacity:0;border:0;padding:0;margin:0;cursor:pointer;
+  }
+  .date-row.invalid{box-shadow:inset 0 0 0 1.5px rgba(193,71,47,.55);}
+
+  /* ---------- 家属区 ---------- */
+  .block{padding:16px 0 4px;}
+  .block-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px;}
+  .block-title{font-size:14px;font-weight:600;color:var(--ink);letter-spacing:.2px;}
+  .block-count{font-size:11.5px;color:var(--muted);}
+  .contact-list{display:flex;flex-direction:column;gap:9px;}
+  .contact-row{display:flex;align-items:center;gap:8px;animation:pop .25s ease both;}
+  .inp{
+    height:44px;border:0;border-radius:12px;background:#F5F7F7;
+    font-family:inherit;font-size:14px;color:var(--ink);
+    padding:0 12px;outline:none;transition:box-shadow .18s,background .18s;
+  }
+  .inp::placeholder{color:#A7B2AF;}
+  .inp:focus{background:#EFF5F3;box-shadow:inset 0 0 0 1.5px rgba(14,107,91,.35);}
+  .inp.name{flex:none;width:86px;text-align:center;}
+  .inp.phone{flex:1;min-width:0;letter-spacing:.4px;}
+  .inp.invalid{box-shadow:inset 0 0 0 1.5px rgba(193,71,47,.5);background:#FDF4F2;}
+  .remove{
+    flex:none;width:28px;height:28px;border:0;border-radius:50%;
+    background:transparent;color:#B9C3C1;font-size:17px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:background .15s,color .15s;
+  }
+  .remove:active{background:#F2F5F4;color:var(--danger);}
+  .remove[hidden]{display:none;}
+
+  .add{
+    width:100%;height:44px;margin-top:9px;
+    border:1.2px dashed #CBD8D5;border-radius:12px;background:transparent;
+    color:var(--primary);font-family:inherit;font-size:13.5px;font-weight:600;
+    letter-spacing:.3px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:background .18s,border-color .18s;
+  }
+  .add:active{background:var(--primary-soft);border-color:#AFCBC4;}
+  .add[hidden]{display:none;}
+  .add svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.4;}
+
+  .sms-preview{
+    margin:12px 0 0;padding:11px 13px;
+    background:var(--primary-soft);border-radius:12px;
+    font-size:11.5px;line-height:1.75;color:#3A6E64;letter-spacing:.15px;
+  }
+  .sms-preview b{font-weight:600;}
+
+  /* ---------- 备注 ---------- */
+  .note{border-top:1px solid var(--line);margin-top:14px;padding-top:2px;}
+  .note summary{
+    list-style:none;display:flex;align-items:center;justify-content:space-between;
+    height:46px;font-size:13.5px;color:var(--ink-2);cursor:pointer;
+  }
+  .note summary::-webkit-details-marker{display:none;}
+  .note summary .opt{font-size:11.5px;color:var(--muted);margin-right:auto;margin-left:7px;}
+  .note summary .chev-down{width:14px;height:14px;stroke:#B3BEBB;stroke-width:2;fill:none;transition:transform .2s;}
+  .note[open] summary .chev-down{transform:rotate(180deg);}
+  .note textarea{
+    width:100%;height:66px;border:0;border-radius:12px;background:#F5F7F7;
+    font-family:inherit;font-size:13px;line-height:1.6;color:var(--ink);
+    padding:11px 12px;outline:none;resize:none;margin-bottom:14px;
+  }
+  .note textarea:focus{box-shadow:inset 0 0 0 1.5px rgba(14,107,91,.35);background:#EFF5F3;}
+  .note textarea::placeholder{color:#A7B2AF;}
+
+  /* ---------- 底部操作 ---------- */
+  .footer{
+    flex:none;padding:8px 20px calc(18px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--app-bg) 62%, rgba(247,248,250,0));
+  }
+  .form-error{
+    display:none;margin:0 2px 8px;font-size:12px;color:var(--danger);letter-spacing:.2px;
+  }
+  .form-error.show{display:block;animation:pop .2s ease;}
+  .cta{
+    width:100%;height:52px;border:0;border-radius:16px;
+    background:linear-gradient(135deg,#127867,#0A5548);
+    color:#fff;font-family:inherit;font-size:16px;font-weight:600;letter-spacing:1.5px;
+    cursor:pointer;
+    box-shadow:0 10px 22px rgba(14,107,91,.26);
+    transition:transform .12s,box-shadow .12s,opacity .2s;
+  }
+  .cta:active{transform:scale(.985);box-shadow:0 5px 14px rgba(14,107,91,.22);}
+  .cta:disabled{opacity:.55;box-shadow:none;}
+
+  /* ---------- 弹窗 ---------- */
+  .mask{
+    position:absolute;inset:0;z-index:20;
+    background:rgba(10,22,20,.44);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;padding:0 26px;
+    opacity:0;pointer-events:none;transition:opacity .22s;
+  }
+  .mask.open{opacity:1;pointer-events:auto;}
+  .dialog{
+    width:100%;background:#fff;border-radius:22px;padding:24px 22px 18px;
+    transform:translateY(10px) scale(.96);opacity:0;
+    transition:transform .26s cubic-bezier(.2,.9,.3,1.15),opacity .2s;
+  }
+  .mask.open .dialog{transform:none;opacity:1;}
+  .dialog h3{margin:0 0 10px;font-size:17px;font-weight:600;letter-spacing:.4px;}
+  .dialog p{margin:0;font-size:13.5px;line-height:1.8;color:var(--ink-2);}
+  .dialog .who{
+    margin-top:12px;padding:11px 13px;border-radius:12px;background:#F5F7F7;
+    font-size:12.5px;color:var(--ink-2);line-height:1.7;
+  }
+  .dialog .who span{color:var(--muted);}
+  .dialog-actions{display:flex;gap:10px;margin-top:20px;}
+  .btn{
+    flex:1;height:46px;border:0;border-radius:14px;font-family:inherit;
+    font-size:14.5px;font-weight:600;letter-spacing:.6px;cursor:pointer;
+    transition:transform .12s,background .15s;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn-ghost{background:#F2F4F4;color:var(--ink-2);}
+  .btn-primary{background:var(--primary);color:#fff;box-shadow:0 6px 16px rgba(14,107,91,.24);}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:absolute;left:50%;bottom:104px;z-index:30;
+    transform:translate(-50%,8px);opacity:0;pointer-events:none;
+    background:rgba(22,33,31,.92);color:#fff;
+    font-size:12.5px;letter-spacing:.3px;
+    padding:10px 16px;border-radius:99px;white-space:nowrap;
+    transition:opacity .22s,transform .22s;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="icons">
+      <span class="bar" style="height:4px"></span>
+      <span class="bar" style="height:6px"></span>
+      <span class="bar" style="height:8px"></span>
+      <span class="bar" style="height:10px"></span>
+      <span class="battery"></span>
+    </span>
+  </div>
+
+  <header class="header">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </span>
+      平安托付
+    </div>
+    <p class="hint">仅在指定日期生效，提交后将自动通知预设家属</p>
+  </header>
+
+  <main class="scroll">
+
+    <section class="records" id="records" hidden>
+      <div class="records-head">申请记录</div>
+      <ul class="record-list" id="recordList"></ul>
+    </section>
+
+    <section class="card">
+      <div class="row date-row" id="dateRow">
+        <span class="row-label">生效日期</span>
+        <span class="row-value">
+          <span id="dateLabel">—</span>
+          <svg class="chev" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </span>
+        <input type="date" id="dateInput" aria-label="选择生效日期">
+      </div>
+
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">短信通知家属</span>
+          <span class="block-count" id="contactCount">1 / 3</span>
+        </div>
+        <div class="contact-list" id="contactList"></div>
+        <button class="add" id="addBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          添加家属
+        </button>
+
+        <p class="sms-preview" id="smsPreview"></p>
+      </div>
+
+      <details class="note">
+        <summary>
+          <span>备注</span><span class="opt">选填，可不填</span>
+          <svg class="chev-down" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <textarea id="noteInput" maxlength="60" placeholder="简单交代一句，例如：如未回复请电话联系"></textarea>
+      </details>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p class="form-error" id="formError"></p>
+    <button class="cta" id="cta" type="button">确认提交申请</button>
+  </footer>
+
+  <!-- 二次确认 -->
+  <div class="mask" id="mask">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+      <h3 id="dlgTitle">确认提交申请</h3>
+      <p id="dlgText"></p>
+      <div class="who" id="dlgWho"></div>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" id="cancelBtn" type="button">再想想</button>
+        <button class="btn btn-primary" id="confirmBtn" type="button">确认并发送</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  const MAX_CONTACTS = 3;
+
+  const $ = id => document.getElementById(id);
+  const dateInput  = $('dateInput');
+  const dateLabel  = $('dateLabel');
+  const dateRow    = $('dateRow');
+  const list       = $('contactList');
+  const addBtn     = $('addBtn');
+  const countEl    = $('contactCount');
+  const preview    = $('smsPreview');
+  const noteInput  = $('noteInput');
+  const formError  = $('formError');
+  const cta        = $('cta');
+  const mask       = $('mask');
+  const dlgText    = $('dlgText');
+  const dlgWho     = $('dlgWho');
+  const cancelBtn  = $('cancelBtn');
+  const confirmBtn = $('confirmBtn');
+  const toast      = $('toast');
+  const records    = $('records');
+  const recordList = $('recordList');
+
+  const pad = n => String(n).padStart(2, '0');
+  const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+  const fmtLong  = iso => { const [y, m, d] = iso.split('-'); return `${y}年${+m}月${+d}日`; };
+  const fmtShort = iso => { const [, m, d] = iso.split('-'); return `${+m}月${+d}日`; };
+
+  // ---------- 日期 ----------
+  dateInput.min = todayISO();
+  dateInput.value = todayISO();
+  const syncDate = () => {
+    dateLabel.textContent = fmtLong(dateInput.value || todayISO());
+    renderPreview();
+    dateRow.classList.remove('invalid');
+  };
+  dateInput.addEventListener('change', syncDate);
+  dateRow.addEventListener('click', () => {
+    if (typeof dateInput.showPicker === 'function') {
+      try { dateInput.showPicker(); } catch (e) {}
+    }
+  });
+
+  // ---------- 家属列表 ----------
+  const contacts = [{ name: '', phone: '' }];
+
+  function renderContacts(){
+    list.innerHTML = '';
+    contacts.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'contact-row';
+
+      const name = document.createElement('input');
+      name.className = 'inp name';
+      name.placeholder = '称呼';
+      name.maxLength = 8;
+      name.value = c.name;
+      name.setAttribute('aria-label', `家属${i + 1}称呼`);
+      name.addEventListener('input', e => {
+        c.name = e.target.value;
+        name.classList.remove('invalid');
+        renderPreview();
+        hideError();
+      });
+
+      const phone = document.createElement('input');
+      phone.className = 'inp phone';
+      phone.placeholder = '手机号码';
+      phone.inputMode = 'numeric';
+      phone.maxLength = 11;
+      phone.value = c.phone;
+      phone.setAttribute('aria-label', `家属${i + 1}手机号`);
+      phone.addEventListener('input', e => {
+        e.target.value = e.target.value.replace(/\D/g, '');
+        c.phone = e.target.value;
+        phone.classList.remove('invalid');
+        hideError();
+      });
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'remove';
+      del.textContent = '×';
+      del.setAttribute('aria-label', '删除该家属');
+      del.hidden = contacts.length === 1;
+      del.addEventListener('click', () => {
+        contacts.splice(i, 1);
+        renderContacts();
+      });
+
+      row.append(name, phone, del);
+      list.appendChild(row);
+    });
+
+    countEl.textContent = `${contacts.length} / ${MAX_CONTACTS}`;
+    addBtn.hidden = contacts.length >= MAX_CONTACTS;
+    renderPreview();
+  }
+
+  addBtn.addEventListener('click', () => {
+    if (contacts.length >= MAX_CONTACTS) return;
+    contacts.push({ name: '', phone: '' });
+    renderContacts();
+    const rows = list.querySelectorAll('.contact-row');
+    const last = rows[rows.length - 1].querySelector('.name');
+    if (last) last.focus();
+  });
+
+  // ---------- 短信预览 ----------
+  function renderPreview(){
+    const iso = dateInput.value || todayISO();
+    preview.innerHTML = `【平安托付】您关注的家人已于 <b>${fmtShort(iso)}</b> 提交状态申请，请及时关注并与其联系。`;
+  }
+
+  // ---------- 错误提示 ----------
+  function showError(msg){
+    formError.textContent = msg;
+    formError.classList.add('show');
+  }
+  function hideError(){
+    formError.classList.remove('show');
+  }
+
+  // ---------- 提交 ----------
+  let pending = null;
+
+  cta.addEventListener('click', () => {
+    hideError();
+    dateRow.classList.remove('invalid');
+    list.querySelectorAll('.inp').forEach(el => el.classList.remove('invalid'));
+
+    const iso = dateInput.value;
+    if (!iso || iso < todayISO()) {
+      dateRow.classList.add('invalid');
+      return showError('请选择今天或之后的生效日期');
+    }
+
+    const filled = contacts.filter(c => c.name.trim() || c.phone.trim());
+    if (!filled.length) return showError('请至少填写一位家属的称呼和手机号');
+
+    let bad = false;
+    filled.forEach(c => {
+      const row = [...list.children].find(r => r.querySelector('.name').value === c.name && r.querySelector('.phone').value === c.phone);
+      const okName = c.name.trim().length > 0;
+      const okPhone = /^1[3-9]\d{9}$/.test(c.phone.trim());
+      if (!okName || !okPhone) {
+        bad = true;
+        if (row) {
+          if (!okName) row.querySelector('.name').classList.add('invalid');
+          if (!okPhone) row.querySelector('.phone').classList.add('invalid');
+        }
+      }
+    });
+    if (bad) return showError('请填写完整信息，手机号需为 11 位有效号码');
+
+    pending = {
+      iso,
+      list: filled.map(c => ({ name: c.name.trim(), phone: c.phone })),
+      note: noteInput.value.trim()
+    };
+
+    dlgText.innerHTML = `确认在 <b>${fmtShort(iso)}</b> 生效，并向以下 ${filled.length} 位家属发送短信提醒吗？`;
+    dlgWho.innerHTML = pending.list.map(c => `${c.name}　<span>${c.phone}</span>`).join('<br>');
+    mask.classList.add('open');
+  });
+
+  function closeDialog(){ mask.classList.remove('open'); }
+  cancelBtn.addEventListener('click', closeDialog);
+  mask.addEventListener('click', e => { if (e.target === mask) closeDialog(); });
+
+  confirmBtn.addEventListener('click', () => {
+    if (!pending) return;
+
+    const d = new Date();
+    const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const count = pending.list.length;
+    const iso = pending.iso;
+
+    const li = document.createElement('li');
+    li.className = 'record pop';
+    li.innerHTML = `
+      <span class="record-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+      </span>
+      <div>
+        <div class="record-title">已申请 · ${fmtShort(iso)}</div>
+        <div class="record-sub">短信已发送至 ${count} 位家属 · ${time}</div>
+      </div>`;
+    recordList.prepend(li);
+    records.hidden = false;
+
+    closeDialog();
+    showToast(`提交成功，已通知 ${count} 位家属`);
+
+    // 回到干净的初始状态，保留日期
+    contacts.length = 0;
+    contacts.push({ name: '', phone: '' });
+    noteInput.value = '';
+    renderContacts();
+    pending = null;
+
+    document.querySelector('.scroll').scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  let toastTimer;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  // ---------- 初始化 ----------
+  syncDate();
+  renderContacts();
+})();
+</script>
+</body>
+</html>
