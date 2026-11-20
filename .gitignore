@@ -3,6 +3,7 @@ dist/
 .trae-html-share-packages/
 server/target/
 server/data/
+server/config/application-local.yml
 release/
 .DS_Store
 *.log
