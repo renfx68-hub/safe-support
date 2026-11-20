@@ -1,0 +1,38 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(900px 600px at 15% 0%, #e3efec 0%, transparent 60%),
+    radial-gradient(800px 600px at 100% 100%, #e7ecf1 0%, transparent 55%),
+    #edf0f2;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+#app {
+  display: flex;
+}
+
+@media (max-width: 480px) {
+  body {
+    display: block;
+    padding: 0;
+    background: #f7f8fa;
+  }
+
+  #app {
+    display: block;
+    height: 100%;
+  }
+}
