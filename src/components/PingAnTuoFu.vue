@@ -192,7 +192,7 @@ async function confirmSubmit() {
 }
 
 function recordSub(record) {
-  return `托付截止 ${shortDate(record.date)} · 当天邮件通知 ${record.total} 位家属 · ${record.time}`
+  return `${shortDate(record.applied)} 提交 · 当天邮件通知 ${record.total} 位家属 · ${record.time}`
 }
 
 let toastTimer
@@ -243,7 +243,7 @@ function showToast(text) {
               </svg>
             </span>
             <div>
-              <div class="record-title">已申请 · {{ shortDate(r.applied) }}</div>
+              <div class="record-title">已预约 · {{ shortDate(r.date) }} 截止</div>
               <div class="record-sub">{{ recordSub(r) }}</div>
             </div>
           </li>

@@ -2,7 +2,9 @@ package com.safesupport.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -22,5 +24,13 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOriginPatterns(allowedOrigins)
                 .allowedMethods("GET", "POST", "OPTIONS");
+    }
+
+    /** 入口 HTML 不缓存，避免页面更新后浏览器仍引用旧的资源文件 */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/index.html")
+                .addResourceLocations("classpath:/static/")
+                .setCacheControl(CacheControl.noStore());
     }
 }
