@@ -57,6 +57,11 @@ const dateLabel = computed(() => {
   return `${y}年${+m}月${+d}日`
 })
 
+const todayLabel = computed(() => {
+  const [y, m, d] = today.split('-')
+  return `${y}年${+m}月${+d}日`
+})
+
 const canAdd = computed(() => contacts.value.length < props.maxContacts)
 
 function openPicker() {
@@ -100,7 +105,7 @@ function validate() {
 
   if (!date.value || date.value < today) {
     errors.value.date = true
-    return '请选择今天或之后的生效日期'
+    return '请选择今天或之后的托付截止日'
   }
 
   const filled = contacts.value.filter(c => c.name.trim() || c.phone.trim())
@@ -164,6 +169,7 @@ async function confirmSubmit() {
 
     records.value.unshift({
       id: Date.now(),
+      applied: today,
       date: payload.date,
       total,
       time: `${pad(now.getHours())}:${pad(now.getMinutes())}`
@@ -171,7 +177,7 @@ async function confirmSubmit() {
 
     dialogOpen.value = false
     emit('submitted', { payload, result })
-    showToast(`已预约 ${shortDate(payload.date)} 通知 ${total} 位家属`)
+    showToast(`已预约：托付截止 ${shortDate(payload.date)}，通知 ${total} 位家属`)
 
     // 回到干净的初始状态，保留所选日期
     contacts.value = [{ id: seq++, name: '', phone: '', email: '' }]
@@ -186,7 +192,7 @@ async function confirmSubmit() {
 }
 
 function recordSub(record) {
-  return `将在生效日邮件通知 ${record.total} 位家属 · ${record.time}`
+  return `托付截止 ${shortDate(record.date)} · 当天邮件通知 ${record.total} 位家属 · ${record.time}`
 }
 
 let toastTimer
@@ -223,7 +229,7 @@ function showToast(text) {
         </span>
         平安托付
       </div>
-      <p class="hint">仅在指定日期生效，届时自动邮件通知预设家属</p>
+      <p class="hint">在托付截止日当天，自动邮件通知预设家属</p>
     </header>
 
     <main ref="scrollEl" class="scroll">
@@ -237,7 +243,7 @@ function showToast(text) {
               </svg>
             </span>
             <div>
-              <div class="record-title">已申请 · {{ shortDate(r.date) }}</div>
+              <div class="record-title">已申请 · {{ shortDate(r.applied) }}</div>
               <div class="record-sub">{{ recordSub(r) }}</div>
             </div>
           </li>
@@ -245,8 +251,13 @@ function showToast(text) {
       </section>
 
       <section class="card">
+        <div class="row">
+          <span class="row-label">申请日期</span>
+          <span class="row-value">{{ todayLabel }}</span>
+        </div>
+
         <div class="row date-row" :class="{ invalid: errors.date }" @click="openPicker">
-          <span class="row-label">生效日期</span>
+          <span class="row-label">托付截止日</span>
           <span class="row-value">
             <span>{{ dateLabel }}</span>
             <svg class="chev" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
@@ -258,7 +269,7 @@ function showToast(text) {
             v-model="date"
             type="date"
             :min="today"
-            aria-label="选择生效日期"
+            aria-label="选择托付截止日"
             @change="errors.date = false"
           />
         </div>
@@ -305,7 +316,7 @@ function showToast(text) {
                 v-model="c.email"
                 class="inp email"
                 :class="{ invalid: errors.items[c.id]?.email }"
-                placeholder="邮箱（选填，不填则发送至测试邮箱）"
+                placeholder="邮箱（选填，不填则随机发往测试邮箱）"
                 inputmode="email"
                 maxlength="120"
                 aria-label="家属邮箱"
@@ -320,7 +331,8 @@ function showToast(text) {
           </button>
 
           <p class="notice-preview">
-            邮件预览：您的家人已于 <b>{{ date ? shortDate(date) : '—' }}</b> 提交状态申请，请及时关注并与其联系。
+            邮件预览：您的家人已于 <b>{{ shortDate(today) }}</b> 提交托付申请，托付截止日为
+            <b>{{ date ? shortDate(date) : '—' }}</b>，请及时关注并与其联系。
           </p>
         </div>
 
@@ -346,11 +358,13 @@ function showToast(text) {
         <h3 id="dlgTitle">确认提交申请</h3>
         <template v-if="pending">
           <p>
-            确认在 <b>{{ shortDate(pending.date) }}</b> 生效，并在当天向以下 {{ pending.contacts.length }} 位家属发送邮件提醒吗？
+            确认将 <b>{{ shortDate(today) }}</b> 提交的托付，于
+            <b>{{ shortDate(pending.date) }}</b> 截止，并在当天向以下
+            {{ pending.contacts.length }} 位家属发送邮件提醒吗？
           </p>
           <div class="who">
             <template v-for="(c, i) in pending.contacts" :key="i">
-              {{ c.name }}　<span>{{ c.email || '未填邮箱，发往测试邮箱' }}</span><br
+              {{ c.name }}　<span>{{ c.email || '未填邮箱，随机发往测试邮箱' }}</span><br
                 v-if="i < pending.contacts.length - 1"
               />
             </template>

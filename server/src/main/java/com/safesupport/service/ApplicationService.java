@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -36,12 +37,12 @@ public class ApplicationService {
         this.maxAttempts = maxAttempts;
     }
 
-    /** 提交仅落库预约，邮件由定时任务在生效日当天发送 */
+    /** 提交仅落库预约，邮件由定时任务在托付截止日当天发送 */
     @Transactional
     public ApplyResponse create(ApplyRequest request) {
         LocalDate effectiveDate = request.effectiveDate();
         if (effectiveDate.isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("生效日期不能早于今天");
+            throw new IllegalArgumentException("托付截止日不能早于今天");
         }
 
         ApplicationRecord record = new ApplicationRecord(effectiveDate, trimToNull(request.note()), Instant.now());
@@ -78,7 +79,11 @@ public class ApplicationService {
                     || DeliveryResult.Status.SKIPPED.name().equals(contact.getStatus())) {
                 continue;
             }
-            DeliveryResult result = emailNotifier.send(contact.getName(), contact.getEmail(), record.getEffectiveDate());
+            DeliveryResult result = emailNotifier.send(
+                    contact.getName(),
+                    contact.getEmail(),
+                    applyDate(record),
+                    record.getEffectiveDate());
             contact.setTarget(result.target());
             contact.setStatus(result.status().name());
             contact.setMessage(result.message());
@@ -102,5 +107,10 @@ public class ApplicationService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** 申请提交日期（按服务器本地时区） */
+    private LocalDate applyDate(ApplicationRecord record) {
+        return record.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate();
     }
 }

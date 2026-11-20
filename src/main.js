@@ -11,7 +11,8 @@ if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.is
     StatusBar.setStyle({ style: Style.Light }).catch(() => {})
   })
 }
-if (navigator.userAgent.includes('Electron')) {
+// 仅打包后的桌面端（file://）标记，避免 Electron 内核浏览器误判
+if (location.protocol === 'file:' && navigator.userAgent.includes('Electron')) {
   root.classList.add('desktop-app')
 }
 
