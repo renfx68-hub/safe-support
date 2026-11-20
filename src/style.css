@@ -36,3 +36,18 @@ body {
     height: 100%;
   }
 }
+
+/* 原生 App / 桌面端：铺满窗口，交由安全区处理留白 */
+html.native-app body,
+html.desktop-app body {
+  display: block;
+  padding: 0;
+  background: #f7f8fa;
+  overscroll-behavior: none;
+}
+
+html.native-app #app,
+html.desktop-app #app {
+  display: block;
+  height: 100%;
+}

@@ -1,5 +1,7 @@
 <script setup>
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { Capacitor } from '@capacitor/core'
+import { App as NativeApp } from '@capacitor/app'
 
 const props = defineProps({
   maxContacts: { type: Number, default: 3 },
@@ -34,6 +36,20 @@ const dialogError = ref('')
 
 const dateInput = ref(null)
 const scrollEl = ref(null)
+
+// 原生端：Android 返回键先关闭确认弹窗，再退出应用
+let backListener = null
+onMounted(async () => {
+  if (!Capacitor.isNativePlatform()) return
+  backListener = await NativeApp.addListener('backButton', () => {
+    if (dialogOpen.value) {
+      closeDialog()
+    } else {
+      NativeApp.exitApp()
+    }
+  })
+})
+onBeforeUnmount(() => backListener?.remove())
 
 const dateLabel = computed(() => {
   if (!date.value) return '—'
@@ -144,20 +160,18 @@ async function confirmSubmit() {
   try {
     const result = props.submitHandler ? await props.submitHandler(payload) : null
     const total = result?.total ?? payload.contacts.length
-    const delivered = result?.delivered ?? payload.contacts.length
     const now = new Date()
 
     records.value.unshift({
       id: Date.now(),
       date: payload.date,
-      delivered,
       total,
       time: `${pad(now.getHours())}:${pad(now.getMinutes())}`
     })
 
     dialogOpen.value = false
     emit('submitted', { payload, result })
-    showToast(delivered > 0 ? `提交成功，已通知 ${delivered} 位家属` : '申请已保存，邮件通道未配置')
+    showToast(`已预约 ${shortDate(payload.date)} 通知 ${total} 位家属`)
 
     // 回到干净的初始状态，保留所选日期
     contacts.value = [{ id: seq++, name: '', phone: '', email: '' }]
@@ -172,15 +186,7 @@ async function confirmSubmit() {
 }
 
 function recordSub(record) {
-  let base
-  if (record.delivered >= record.total) {
-    base = `邮件已发送至 ${record.delivered} 位家属`
-  } else if (record.delivered > 0) {
-    base = `邮件已发送 ${record.delivered}/${record.total} 位家属`
-  } else {
-    base = '申请已保存，邮件通道未配置'
-  }
-  return `${base} · ${record.time}`
+  return `将在生效日邮件通知 ${record.total} 位家属 · ${record.time}`
 }
 
 let toastTimer
@@ -217,7 +223,7 @@ function showToast(text) {
         </span>
         平安托付
       </div>
-      <p class="hint">仅在指定日期生效，提交后将自动通知预设家属</p>
+      <p class="hint">仅在指定日期生效，届时自动邮件通知预设家属</p>
     </header>
 
     <main ref="scrollEl" class="scroll">
@@ -340,7 +346,7 @@ function showToast(text) {
         <h3 id="dlgTitle">确认提交申请</h3>
         <template v-if="pending">
           <p>
-            确认在 <b>{{ shortDate(pending.date) }}</b> 生效，并向以下 {{ pending.contacts.length }} 位家属发送邮件提醒吗？
+            确认在 <b>{{ shortDate(pending.date) }}</b> 生效，并在当天向以下 {{ pending.contacts.length }} 位家属发送邮件提醒吗？
           </p>
           <div class="who">
             <template v-for="(c, i) in pending.contacts" :key="i">
@@ -354,7 +360,7 @@ function showToast(text) {
         <div class="dialog-actions">
           <button class="btn btn-ghost" type="button" :disabled="submitting" @click="closeDialog">再想想</button>
           <button class="btn btn-primary" type="button" :disabled="submitting" @click="confirmSubmit">
-            {{ submitting ? '发送中…' : '确认并发送' }}
+            {{ submitting ? '提交中…' : '确认并预约' }}
           </button>
         </div>
       </div>
@@ -407,6 +413,29 @@ function showToast(text) {
     border-radius: 0;
     box-shadow: none;
   }
+}
+
+/* 原生 App / 桌面端：铺满窗口，用真实状态栏与安全区替代模拟状态栏 */
+:global(html.native-app) .phone,
+:global(html.desktop-app) .phone {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:global(html.native-app) .statusbar,
+:global(html.desktop-app) .statusbar {
+  display: none;
+}
+
+:global(html.native-app) .header {
+  padding-top: calc(10px + env(safe-area-inset-top));
+}
+
+:global(html.desktop-app) .header {
+  padding-top: 18px;
 }
 
 /* 状态栏 */

@@ -33,6 +33,16 @@ app:
     from: ${MAIL_FROM:${MAIL_USERNAME:}}
     # 家属未填邮箱时的兜底收件地址，留空则该家属跳过发送
     test-recipient: ${MAIL_TEST_TO:}
+  notify:
+    # 定时任务扫描到期申请的间隔（毫秒）
+    poll-interval-ms: 60000
+    # 应用启动后延迟多久开始首轮扫描
+    initial-delay-ms: 30000
+    # 单条申请最多尝试轮次，超过后标记 FAILED
+    max-attempts: 5
+  cors:
+    # 允许跨域的来源，多个用逗号分隔；App/桌面端默认全部放行
+    allowed-origins: ${CORS_ORIGINS:*}
 
 logging:
   level:

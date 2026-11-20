@@ -1,0 +1,8 @@
+{
+  "appId": "com.safesupport.pingantuofu",
+  "appName": "平安托付",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

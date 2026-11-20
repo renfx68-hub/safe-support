@@ -42,7 +42,7 @@ public class EmailNotifier {
     public DeliveryResult send(String contactName, String email, LocalDate effectiveDate) {
         String target = isBlank(email) ? trimToNull(testRecipient) : email.trim();
 
-        if (isBlank(username) || isBlank(password)) {
+        if (!isConfigured()) {
             log.info("[mail skipped] 邮件通道未配置，跳过发送：contact={}, target={}", contactName, target);
             return DeliveryResult.skipped(target, "邮件通道未配置（请设置 MAIL_USERNAME / MAIL_PASSWORD）");
         }
@@ -65,6 +65,10 @@ public class EmailNotifier {
             log.warn("[mail failed] contact={}, target={}", contactName, target, e);
             return DeliveryResult.failed(target, "邮件发送失败：" + e.getMessage());
         }
+    }
+
+    public boolean isConfigured() {
+        return !isBlank(username) && !isBlank(password);
     }
 
     private String buildBody(String contactName, LocalDate effectiveDate) {

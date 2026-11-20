@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    # 生产环境通过 DB_URL / DB_USERNAME / DB_PASSWORD 注入
+    url: '${DB_URL:jdbc:mysql://localhost:3306/safesupport?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}'
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: false

@@ -12,6 +12,7 @@ public record ApplyResponse(
         LocalDate effectiveDate,
         String note,
         Instant createdAt,
+        String status,
         int total,
         int delivered,
         List<Notification> notifications
@@ -19,15 +20,19 @@ public record ApplyResponse(
     public record Notification(String name, String email, String target, String status, String message) {
     }
 
-    public static ApplyResponse of(ApplicationRecord record, int delivered) {
+    public static ApplyResponse of(ApplicationRecord record) {
         List<Notification> notifications = record.getContacts().stream()
                 .map(c -> new Notification(c.getName(), c.getEmail(), c.getTarget(), c.getStatus(), c.getMessage()))
                 .toList();
+        int delivered = (int) record.getContacts().stream()
+                .filter(c -> "SENT".equals(c.getStatus()))
+                .count();
         return new ApplyResponse(
                 record.getId(),
                 record.getEffectiveDate(),
                 record.getNote(),
                 record.getCreatedAt(),
+                record.getStatus().name(),
                 notifications.size(),
                 delivered,
                 notifications

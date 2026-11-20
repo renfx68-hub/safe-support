@@ -3,5 +3,22 @@ dist/
 .trae-html-share-packages/
 server/target/
 server/data/
+release/
 .DS_Store
 *.log
+
+# Capacitor 构建产物（由 cap sync 生成）
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
