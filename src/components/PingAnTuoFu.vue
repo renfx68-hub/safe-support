@@ -2,10 +2,12 @@
 import { computed, nextTick, ref } from 'vue'
 
 const props = defineProps({
-  maxContacts: { type: Number, default: 3 }
+  maxContacts: { type: Number, default: 3 },
+  // 返回 Promise 的提交函数；不传则走本地模拟（vue-preview 场景）
+  submitHandler: { type: Function, default: null }
 })
 
-const emit = defineEmits(['submit'])
+const emit = defineEmits(['submitted'])
 
 const pad = n => String(n).padStart(2, '0')
 const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -18,7 +20,7 @@ const today = toISO(new Date())
 
 let seq = 1
 const date = ref(today)
-const contacts = ref([{ id: seq++, name: '', phone: '' }])
+const contacts = ref([{ id: seq++, name: '', phone: '', email: '' }])
 const note = ref('')
 const formError = ref('')
 const errors = ref({ date: false, items: {} })
@@ -27,6 +29,8 @@ const dialogOpen = ref(false)
 const pending = ref(null)
 const toastVisible = ref(false)
 const toastText = ref('')
+const submitting = ref(false)
+const dialogError = ref('')
 
 const dateInput = ref(null)
 const scrollEl = ref(null)
@@ -51,7 +55,7 @@ function openPicker() {
 
 async function addContact() {
   if (!canAdd.value) return
-  contacts.value.push({ id: seq++, name: '', phone: '' })
+  contacts.value.push({ id: seq++, name: '', phone: '', email: '' })
   await nextTick()
   const rows = scrollEl.value?.querySelectorAll('.contact-row')
   rows?.[rows.length - 1]?.querySelector('.name')?.focus()
@@ -72,7 +76,7 @@ function onPhoneInput(contact, event) {
 function clearFieldError(id, field) {
   const item = errors.value.items[id]
   if (item && item[field]) item[field] = false
-  if (field === 'name') formError.value = ''
+  formError.value = ''
 }
 
 function validate() {
@@ -86,17 +90,22 @@ function validate() {
   const filled = contacts.value.filter(c => c.name.trim() || c.phone.trim())
   if (!filled.length) return '请至少填写一位家属的称呼和手机号'
 
-  let bad = false
+  let badRequired = false
+  let badEmail = false
   filled.forEach(c => {
     const nameBad = !c.name.trim()
     const phoneBad = !/^1[3-9]\d{9}$/.test(c.phone.trim())
-    if (nameBad || phoneBad) {
-      bad = true
-      errors.value.items[c.id] = { name: nameBad, phone: phoneBad }
+    const emailBad = !!c.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())
+    if (nameBad || phoneBad || emailBad) {
+      errors.value.items[c.id] = { name: nameBad, phone: phoneBad, email: emailBad }
     }
+    if (nameBad || phoneBad) badRequired = true
+    if (emailBad) badEmail = true
   })
 
-  return bad ? '请填写完整信息，手机号需为 11 位有效号码' : ''
+  if (badRequired) return '请填写完整信息，手机号需为 11 位有效号码'
+  if (badEmail) return '邮箱格式不正确，请检查或留空'
+  return ''
 }
 
 function submitRequest() {
@@ -110,9 +119,14 @@ function submitRequest() {
   const filled = contacts.value.filter(c => c.name.trim() || c.phone.trim())
   pending.value = {
     date: date.value,
-    contacts: filled.map(c => ({ name: c.name.trim(), phone: c.phone.trim() })),
+    contacts: filled.map(c => ({
+      name: c.name.trim(),
+      phone: c.phone.trim(),
+      email: c.email.trim()
+    })),
     note: note.value.trim()
   }
+  dialogError.value = ''
   dialogOpen.value = true
 }
 
@@ -120,28 +134,53 @@ function closeDialog() {
   dialogOpen.value = false
 }
 
-function confirmSubmit() {
-  if (!pending.value) return
+async function confirmSubmit() {
+  if (!pending.value || submitting.value) return
 
   const payload = pending.value
-  const now = new Date()
+  submitting.value = true
+  dialogError.value = ''
 
-  records.value.unshift({
-    id: Date.now(),
-    date: payload.date,
-    count: payload.contacts.length,
-    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`
-  })
+  try {
+    const result = props.submitHandler ? await props.submitHandler(payload) : null
+    const total = result?.total ?? payload.contacts.length
+    const delivered = result?.delivered ?? payload.contacts.length
+    const now = new Date()
 
-  dialogOpen.value = false
-  emit('submit', payload)
-  showToast(`提交成功，已通知 ${payload.contacts.length} 位家属`)
+    records.value.unshift({
+      id: Date.now(),
+      date: payload.date,
+      delivered,
+      total,
+      time: `${pad(now.getHours())}:${pad(now.getMinutes())}`
+    })
 
-  // 回到干净的初始状态，保留所选日期
-  contacts.value = [{ id: seq++, name: '', phone: '' }]
-  note.value = ''
-  errors.value = { date: false, items: {} }
-  scrollEl.value?.scrollTo({ top: 0, behavior: 'smooth' })
+    dialogOpen.value = false
+    emit('submitted', { payload, result })
+    showToast(delivered > 0 ? `提交成功，已通知 ${delivered} 位家属` : '申请已保存，邮件通道未配置')
+
+    // 回到干净的初始状态，保留所选日期
+    contacts.value = [{ id: seq++, name: '', phone: '', email: '' }]
+    note.value = ''
+    errors.value = { date: false, items: {} }
+    scrollEl.value?.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (e) {
+    dialogError.value = e?.message || '提交失败，请稍后重试'
+  } finally {
+    submitting.value = false
+  }
+}
+
+function recordSub(record) {
+  let base
+  if (record.delivered >= record.total) {
+    base = `邮件已发送至 ${record.delivered} 位家属`
+  } else if (record.delivered > 0) {
+    base = `邮件已发送 ${record.delivered}/${record.total} 位家属`
+  } else {
+    base = '申请已保存，邮件通道未配置'
+  }
+  return `${base} · ${record.time}`
 }
 
 let toastTimer
@@ -193,7 +232,7 @@ function showToast(text) {
             </span>
             <div>
               <div class="record-title">已申请 · {{ shortDate(r.date) }}</div>
-              <div class="record-sub">短信已发送至 {{ r.count }} 位家属 · {{ r.time }}</div>
+              <div class="record-sub">{{ recordSub(r) }}</div>
             </div>
           </li>
         </ul>
@@ -220,40 +259,52 @@ function showToast(text) {
 
         <div class="block">
           <div class="block-head">
-            <span class="block-title">短信通知家属</span>
+            <span class="block-title">邮件通知家属</span>
             <span class="block-count">{{ contacts.length }} / {{ maxContacts }}</span>
           </div>
 
           <div class="contact-list">
-            <div v-for="c in contacts" :key="c.id" class="contact-row">
+            <div v-for="c in contacts" :key="c.id" class="contact">
+              <div class="contact-row">
+                <input
+                  v-model="c.name"
+                  class="inp name"
+                  :class="{ invalid: errors.items[c.id]?.name }"
+                  placeholder="称呼"
+                  maxlength="8"
+                  :aria-label="`家属${c.name ? c.name : ''}称呼`"
+                  @input="clearFieldError(c.id, 'name')"
+                />
+                <input
+                  :value="c.phone"
+                  class="inp phone"
+                  :class="{ invalid: errors.items[c.id]?.phone }"
+                  placeholder="手机号码"
+                  inputmode="numeric"
+                  maxlength="11"
+                  aria-label="手机号码"
+                  @input="onPhoneInput(c, $event)"
+                />
+                <button
+                  v-if="contacts.length > 1"
+                  type="button"
+                  class="remove"
+                  aria-label="删除该家属"
+                  @click="removeContact(c.id)"
+                >
+                  ×
+                </button>
+              </div>
               <input
-                v-model="c.name"
-                class="inp name"
-                :class="{ invalid: errors.items[c.id]?.name }"
-                placeholder="称呼"
-                maxlength="8"
-                :aria-label="`家属${c.name ? c.name : ''}称呼`"
-                @input="clearFieldError(c.id, 'name')"
+                v-model="c.email"
+                class="inp email"
+                :class="{ invalid: errors.items[c.id]?.email }"
+                placeholder="邮箱（选填，不填则发送至测试邮箱）"
+                inputmode="email"
+                maxlength="120"
+                aria-label="家属邮箱"
+                @input="clearFieldError(c.id, 'email')"
               />
-              <input
-                :value="c.phone"
-                class="inp phone"
-                :class="{ invalid: errors.items[c.id]?.phone }"
-                placeholder="手机号码"
-                inputmode="numeric"
-                maxlength="11"
-                aria-label="手机号码"
-                @input="onPhoneInput(c, $event)"
-              />
-              <button
-                v-if="contacts.length > 1"
-                type="button"
-                class="remove"
-                aria-label="删除该家属"
-                @click="removeContact(c.id)"
-              >
-                ×
-              </button>
             </div>
           </div>
 
@@ -262,8 +313,8 @@ function showToast(text) {
             添加家属
           </button>
 
-          <p class="sms-preview">
-            【平安托付】您关注的家人已于 <b>{{ date ? shortDate(date) : '—' }}</b> 提交状态申请，请及时关注并与其联系。
+          <p class="notice-preview">
+            邮件预览：您的家人已于 <b>{{ date ? shortDate(date) : '—' }}</b> 提交状态申请，请及时关注并与其联系。
           </p>
         </div>
 
@@ -289,17 +340,22 @@ function showToast(text) {
         <h3 id="dlgTitle">确认提交申请</h3>
         <template v-if="pending">
           <p>
-            确认在 <b>{{ shortDate(pending.date) }}</b> 生效，并向以下 {{ pending.contacts.length }} 位家属发送短信提醒吗？
+            确认在 <b>{{ shortDate(pending.date) }}</b> 生效，并向以下 {{ pending.contacts.length }} 位家属发送邮件提醒吗？
           </p>
           <div class="who">
             <template v-for="(c, i) in pending.contacts" :key="i">
-              {{ c.name }}　<span>{{ c.phone }}</span><br v-if="i < pending.contacts.length - 1" />
+              {{ c.name }}　<span>{{ c.email || '未填邮箱，发往测试邮箱' }}</span><br
+                v-if="i < pending.contacts.length - 1"
+              />
             </template>
           </div>
+          <p v-if="dialogError" class="dialog-error">{{ dialogError }}</p>
         </template>
         <div class="dialog-actions">
-          <button class="btn btn-ghost" type="button" @click="closeDialog">再想想</button>
-          <button class="btn btn-primary" type="button" @click="confirmSubmit">确认并发送</button>
+          <button class="btn btn-ghost" type="button" :disabled="submitting" @click="closeDialog">再想想</button>
+          <button class="btn btn-primary" type="button" :disabled="submitting" @click="confirmSubmit">
+            {{ submitting ? '发送中…' : '确认并发送' }}
+          </button>
         </div>
       </div>
     </div>
@@ -616,13 +672,18 @@ function showToast(text) {
 .contact-list {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
+}
+.contact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: pop 0.25s ease both;
 }
 .contact-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  animation: pop 0.25s ease both;
 }
 .inp {
   height: 44px;
@@ -652,6 +713,11 @@ function showToast(text) {
   flex: 1;
   min-width: 0;
   letter-spacing: 0.4px;
+}
+.inp.email {
+  width: 100%;
+  height: 38px;
+  font-size: 12.5px;
 }
 .inp.invalid {
   box-shadow: inset 0 0 0 1.5px rgba(193, 71, 47, 0.5);
@@ -706,7 +772,7 @@ function showToast(text) {
   stroke: currentColor;
   stroke-width: 2.4;
 }
-.sms-preview {
+.notice-preview {
   margin: 12px 0 0;
   padding: 11px 13px;
   background: var(--primary-soft);
@@ -716,7 +782,7 @@ function showToast(text) {
   color: #3a6e64;
   letter-spacing: 0.15px;
 }
-.sms-preview b {
+.notice-preview b {
   font-weight: 600;
 }
 
@@ -873,6 +939,11 @@ function showToast(text) {
 .dialog .who span {
   color: var(--muted);
 }
+.dialog-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--danger);
+}
 .dialog-actions {
   display: flex;
   gap: 10px;
@@ -892,6 +963,11 @@ function showToast(text) {
 }
 .btn:active {
   transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 .btn-ghost {
   background: #f2f4f4;

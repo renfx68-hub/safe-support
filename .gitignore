@@ -1,5 +1,7 @@
 node_modules/
 dist/
 .trae-html-share-packages/
+server/target/
+server/data/
 .DS_Store
 *.log
